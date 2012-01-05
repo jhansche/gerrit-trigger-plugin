@@ -24,7 +24,10 @@
 package com.sonyericsson.hudson.plugins.gerrit.trigger.hudsontrigger;
 
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.attr.Account;
+import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.ChangeAbandoned;
+import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.ChangeMerged;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.GerritTriggeredEvent;
+import com.sonyericsson.hudson.plugins.gerrit.gerritevents.dto.events.PatchsetCreated;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.PluginImpl;
 import com.sonyericsson.hudson.plugins.gerrit.trigger.utils.StringUtil;
 import hudson.model.ParameterValue;
@@ -88,16 +91,38 @@ public enum GerritTriggerParameters {
     GERRIT_CHANGE_OWNER_EMAIL,
     /**
      * The name and email of the uploader of the patch-set.
+     * @deprecated Use {@link #GERRIT_ACTOR} instead
      */
+    @Deprecated
     GERRIT_PATCHSET_UPLOADER,
     /**
      * The name of the uploader of the patch-set.
+     * @deprecated Use {@link #GERRIT_ACTOR_NAME} instead
      */
+    @Deprecated
     GERRIT_PATCHSET_UPLOADER_NAME,
     /**
      * The email of the uploader of the patch-set.
+     * @deprecated Use {@link #GERRIT_ACTOR_EMAIL} instead
      */
-    GERRIT_PATCHSET_UPLOADER_EMAIL;
+    @Deprecated
+    GERRIT_PATCHSET_UPLOADER_EMAIL,
+    /**
+     * The name and email of the user who performed the event.
+     */
+    GERRIT_ACTOR,
+    /**
+     * The name of the user who performed the event.
+     */
+    GERRIT_ACTOR_NAME,
+    /**
+     * The email of the user who performed the event.
+     */
+    GERRIT_ACTOR_EMAIL,
+    /**
+     * The type of event that occurred.
+     */
+    GERRIT_EVENT_TYPE;
 
     /**
      * Creates a {@link hudson.model.StringParameterValue} and adds it to the provided list.
@@ -166,19 +191,43 @@ public enum GerritTriggerParameters {
                                                                                   event.getPatchSet().getNumber());
         GERRIT_CHANGE_URL.setOrCreateStringParameterValue(
                 parameters, url, escapeQuotes);
+
+        Account owner = event.getChange().getOwner();
         GERRIT_CHANGE_OWNER.setOrCreateStringParameterValue(
-                parameters, getNameAndEmail(event.getChange().getOwner()), escapeQuotes);
+                parameters, getNameAndEmail(owner), escapeQuotes);
         GERRIT_CHANGE_OWNER_NAME.setOrCreateStringParameterValue(
-                parameters, getName(event.getChange().getOwner()), escapeQuotes);
+                parameters, getName(owner), escapeQuotes);
         GERRIT_CHANGE_OWNER_EMAIL.setOrCreateStringParameterValue(
-                parameters, getEmail(event.getChange().getOwner()), escapeQuotes);
-        Account uploader = findUploader(event);
-        GERRIT_PATCHSET_UPLOADER.setOrCreateStringParameterValue(
-                parameters, getNameAndEmail(uploader), escapeQuotes);
-        GERRIT_PATCHSET_UPLOADER_NAME.setOrCreateStringParameterValue(
-                parameters, getName(uploader), escapeQuotes);
-        GERRIT_PATCHSET_UPLOADER_EMAIL.setOrCreateStringParameterValue(
-                parameters, getEmail(uploader), escapeQuotes);
+                parameters, getEmail(owner), escapeQuotes);
+
+        Account account;
+		if (event instanceof PatchsetCreated) {
+			account = findUploader(event);
+			GERRIT_PATCHSET_UPLOADER.setOrCreateStringParameterValue(
+					parameters, getNameAndEmail(account), escapeQuotes);
+			GERRIT_PATCHSET_UPLOADER_NAME.setOrCreateStringParameterValue(
+					parameters, getName(account), escapeQuotes);
+			GERRIT_PATCHSET_UPLOADER_EMAIL.setOrCreateStringParameterValue(
+					parameters, getEmail(account), escapeQuotes);
+		} else {
+			account = event.getAccount();
+		}
+
+		if (event instanceof ChangeMerged) {
+			//TODO: GERRIT_PATCHSET_REVISION might be wrong, if the project
+			// is configured todo non-fast-forward merges or cherry-pick!
+			// So, might need to listen and wait for the "ref-updated" event.
+		}
+
+		GERRIT_ACTOR.setOrCreateStringParameterValue(
+				parameters, getNameAndEmail(account), escapeQuotes);
+		GERRIT_ACTOR_NAME.setOrCreateStringParameterValue(
+				parameters, getName(account), escapeQuotes);
+		GERRIT_ACTOR_EMAIL.setOrCreateStringParameterValue(
+				parameters, getEmail(account), escapeQuotes);
+
+		GERRIT_EVENT_TYPE.setOrCreateStringParameterValue(parameters,
+				event.getClass().getSimpleName(), escapeQuotes);
     }
 
     /**

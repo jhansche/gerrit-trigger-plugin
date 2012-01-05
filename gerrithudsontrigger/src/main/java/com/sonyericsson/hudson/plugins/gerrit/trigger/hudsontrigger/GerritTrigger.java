@@ -87,6 +87,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
     private boolean escapeQuotes;
     private boolean triggerOnPatchsetUploadedEvent;
     private boolean triggerOnChangeMergedEvent;
+	private boolean triggerOnChangeAbandonedEvent;
     private String buildStartMessage;
     private String buildFailureMessage;
     private String buildSuccessfulMessage;
@@ -123,6 +124,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
      * @param escapeQuotes                   EscapeQuotes on or off.
      * @param triggerOnPatchsetUploadedEvent Trigger event on patchset uploaded on or off.
      * @param triggerOnChangeMergedEvent     Trigger event on change merged on or off.
+     * @param triggerOnChangeAbandonedEvent  Trigger event on change abandoned on or off.
      * @param buildStartMessage              Message to write to Gerrit when a build begins
      * @param buildSuccessfulMessage         Message to write to Gerrit when a build succeeds
      * @param buildUnstableMessage           Message to write to Gerrit when a build is unstable
@@ -143,6 +145,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
             boolean escapeQuotes,
             boolean triggerOnPatchsetUploadedEvent,
             boolean triggerOnChangeMergedEvent,
+            boolean triggerOnChangeAbandonedEvent,
             String buildStartMessage,
             String buildSuccessfulMessage,
             String buildUnstableMessage,
@@ -161,6 +164,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
         this.escapeQuotes = escapeQuotes;
         this.triggerOnPatchsetUploadedEvent = triggerOnPatchsetUploadedEvent;
         this.triggerOnChangeMergedEvent = triggerOnChangeMergedEvent;
+        this.triggerOnChangeAbandonedEvent = triggerOnChangeAbandonedEvent;
         this.buildStartMessage = buildStartMessage;
         this.buildSuccessfulMessage = buildSuccessfulMessage;
         this.buildUnstableMessage = buildUnstableMessage;
@@ -200,6 +204,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
     @Override
     public void gerritEvent(GerritEvent event) {
         //Default should do nothing
+    	logger.trace("Ignoring generic event: {}", event);
     }
 
     /**
@@ -209,7 +214,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
      */
     @Override
     public void gerritEvent(PatchsetCreated event) {
-        logger.trace("event: {}", event);
+        logger.trace("PatchsetCreated event: {}, is enabled: {}", event, triggerOnPatchsetUploadedEvent);
         if (!myProject.isBuildable()) {
             logger.trace("Disabled.");
             return;
@@ -413,7 +418,19 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
      */
     @Override
     public void gerritEvent(ChangeAbandoned event) {
-        //TODO Implement
+        logger.trace("ChangeAbandoned event: {}", event);
+        if (!myProject.isBuildable()) {
+            logger.trace("Disabled.");
+            return;
+        }
+        if (triggerOnChangeAbandonedEvent && isInteresting(event)) {
+            logger.trace("The event is interesting.");
+            if (!silentMode) {
+                ToGerritRunListener.getInstance().onTriggered(myProject, event);
+            }
+            GerritCause cause = new GerritCause(event, silentMode);
+            schedule(cause, event);
+        }
     }
 
     /**
@@ -423,7 +440,7 @@ public class GerritTrigger extends Trigger<AbstractProject> implements GerritEve
      */
     @Override
     public void gerritEvent(ChangeMerged event) {
-        logger.trace("event: {}", event);
+        logger.trace("ChangeMerged event: {}, is enabled: {}", event, triggerOnChangeMergedEvent);
         if (!myProject.isBuildable()) {
             logger.trace("Disabled.");
             return;
