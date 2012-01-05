@@ -83,8 +83,8 @@ public class ManualPatchsetCreated extends PatchsetCreated {
     public String toString() {
         StringBuilder str = new StringBuilder("[");
         str.append(getClass().getSimpleName());
-        str.append(" Change: ").append(getChange());
-        str.append(" PatchSet: ").append(getPatchSet());
+        str.append(getChange());
+        str.append(getPatchSet());
         str.append("]");
         return str.toString();
     }

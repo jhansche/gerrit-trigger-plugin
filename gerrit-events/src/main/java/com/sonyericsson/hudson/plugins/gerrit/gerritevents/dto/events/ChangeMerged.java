@@ -69,4 +69,10 @@ public class ChangeMerged extends GerritTriggeredEvent implements GerritJsonEven
             account = new Account(json.getJSONObject(SUBMITTER));
         }
     }
+
+	@Override
+	public String toString() {
+		return "ChangeMerged{" + getChange() + ", " + getPatchSet()
+				+ ", Submitter: " + getAccount().getNameAndEmail() + "}";
+	}
 }
